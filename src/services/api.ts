@@ -1,0 +1,30 @@
+import pb from '@/lib/pocketbase/client'
+import type { ServiceOrder, Comment, User } from '@/types/models'
+
+export const getServiceOrders = () =>
+  pb
+    .collection('service_orders')
+    .getFullList<ServiceOrder>({ expand: 'requester,assignee', sort: '-created' })
+
+export const getServiceOrder = (id: string) =>
+  pb.collection('service_orders').getOne<ServiceOrder>(id, { expand: 'requester,assignee' })
+
+export const createServiceOrder = (data: Partial<ServiceOrder>) =>
+  pb.collection('service_orders').create<ServiceOrder>(data)
+
+export const updateServiceOrder = (id: string, data: Partial<ServiceOrder>) =>
+  pb.collection('service_orders').update<ServiceOrder>(id, data)
+
+export const getComments = (orderId: string) =>
+  pb
+    .collection('comments')
+    .getFullList<Comment>({
+      filter: `service_order = '${orderId}'`,
+      expand: 'user',
+      sort: 'created',
+    })
+
+export const createComment = (data: Partial<Comment>) =>
+  pb.collection('comments').create<Comment>(data)
+
+export const getUsers = () => pb.collection('users').getFullList<User>({ sort: 'name' })
