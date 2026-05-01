@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getServiceOrders } from '@/services/api'
+import { getServiceOrders, deleteServiceOrder } from '@/services/api'
 import { useRealtime } from '@/hooks/use-realtime'
 import type { ServiceOrder } from '@/types/models'
 import {
@@ -12,7 +12,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreHorizontal, Eye, Edit, Printer } from 'lucide-react'
+import { Plus, MoreHorizontal, Eye, Printer, Trash } from 'lucide-react'
 import { StatusBadge, PriorityBadge } from '@/components/badges'
 import {
   DropdownMenu,
@@ -20,12 +20,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { toast } from 'sonner'
 
 export default function Orders() {
   const [orders, setOrders] = useState<ServiceOrder[]>([])
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const load = async () => {
@@ -40,6 +51,19 @@ export default function Orders() {
 
   const simulatePrint = () => {
     toast.success('Gerando PDF...', { description: 'O download iniciará em instantes.' })
+  }
+
+  const handleDelete = async () => {
+    if (!deletingId) return
+    try {
+      await deleteServiceOrder(deletingId)
+      toast.success('Ordem de serviço excluída')
+      load()
+    } catch (e) {
+      toast.error('Erro ao excluir OS')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   return (
@@ -109,10 +133,16 @@ export default function Orders() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => navigate(`/orders/${order.id}`)}>
-                          <Eye className="mr-2 h-4 w-4" /> Visualizar Detalhes
+                          <Eye className="mr-2 h-4 w-4" /> Detalhes / Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={simulatePrint}>
                           <Printer className="mr-2 h-4 w-4" /> Imprimir PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => setDeletingId(order.id)}
+                        >
+                          <Trash className="mr-2 h-4 w-4" /> Excluir
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -123,6 +153,23 @@ export default function Orders() {
           </TableBody>
         </Table>
       </div>
+
+      <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Isso excluirá permanentemente a Ordem de Serviço.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

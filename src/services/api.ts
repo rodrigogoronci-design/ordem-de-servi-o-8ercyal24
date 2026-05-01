@@ -16,15 +16,20 @@ export const updateServiceOrder = (id: string, data: Partial<ServiceOrder>) =>
   pb.collection('service_orders').update<ServiceOrder>(id, data)
 
 export const getComments = (orderId: string) =>
-  pb
-    .collection('comments')
-    .getFullList<Comment>({
-      filter: `service_order = '${orderId}'`,
-      expand: 'user',
-      sort: 'created',
-    })
+  pb.collection('comments').getFullList<Comment>({
+    filter: `service_order = '${orderId}'`,
+    expand: 'user',
+    sort: 'created',
+  })
 
 export const createComment = (data: Partial<Comment>) =>
   pb.collection('comments').create<Comment>(data)
+
+export const updateComment = (id: string, data: Partial<Comment>) =>
+  pb.collection('comments').update<Comment>(id, data)
+
+export const deleteComment = (id: string) => pb.collection('comments').delete(id)
+
+export const deleteServiceOrder = (id: string) => pb.collection('service_orders').delete(id)
 
 export const getUsers = () => pb.collection('users').getFullList<User>({ sort: 'name' })
