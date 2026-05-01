@@ -3,7 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
-import { getServiceOrder, updateServiceOrder, deleteServiceOrder, getUsers } from '@/services/api'
+import {
+  getServiceOrder,
+  updateServiceOrder,
+  deleteServiceOrder,
+  getUsers,
+  sendWhatsAppMessage,
+} from '@/services/api'
 import { useRealtime } from '@/hooks/use-realtime'
 import type { ServiceOrder, User } from '@/types/models'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Clock, CalendarIcon, Edit, Trash } from 'lucide-react'
+import { ArrowLeft, Clock, CalendarIcon, Edit, Trash, MessageCircle } from 'lucide-react'
 import { CommentsSection } from '@/components/CommentsSection'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -39,6 +45,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Form,
   FormControl,
@@ -71,6 +85,10 @@ export default function OrderDetail() {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false)
+  const [waPhone, setWaPhone] = useState('')
+  const [isSendingWa, setIsSendingWa] = useState(false)
 
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
@@ -147,6 +165,24 @@ export default function OrderDetail() {
     }
   }
 
+  const handleSendWhatsApp = async () => {
+    if (!/^\d{10,11}$/.test(waPhone)) {
+      toast.error('Formato inválido. Use apenas números, incluindo o DDD (ex: 11999999999)')
+      return
+    }
+    setIsSendingWa(true)
+    try {
+      await sendWhatsAppMessage(order.id, waPhone)
+      toast.success('Mensagem enviada com sucesso!')
+      setIsWhatsAppOpen(false)
+      setWaPhone('')
+    } catch (error: any) {
+      toast.error(error?.response?.message || 'Erro ao enviar mensagem pelo WhatsApp')
+    } finally {
+      setIsSendingWa(false)
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -162,7 +198,10 @@ export default function OrderDetail() {
             <p className="text-muted-foreground font-mono text-sm mt-1">ID: #{order.id}</p>
           </div>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto ml-14 sm:ml-0">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto ml-14 sm:ml-0">
+          <Button variant="outline" onClick={() => setIsWhatsAppOpen(true)}>
+            <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
+          </Button>
           <Button variant="outline" onClick={() => setIsEditOpen(true)}>
             <Edit className="w-4 h-4 mr-2" /> Editar
           </Button>
@@ -444,6 +483,42 @@ export default function OrderDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={isWhatsAppOpen} onOpenChange={setIsWhatsAppOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar Ordem de Serviço via WhatsApp</DialogTitle>
+            <DialogDescription>
+              Informe o número de telefone para enviar os detalhes desta OS. O formato deve ser o
+              DDD + Número (ex: 11999999999).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Número do WhatsApp</Label>
+              <Input
+                id="phone"
+                placeholder="11999999999"
+                value={waPhone}
+                onChange={(e) => setWaPhone(e.target.value.replace(/\D/g, ''))}
+                maxLength={11}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsWhatsAppOpen(false)}
+              disabled={isSendingWa}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSendWhatsApp} disabled={isSendingWa || waPhone.length < 10}>
+              {isSendingWa ? 'Enviando...' : 'Enviar Mensagem'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
