@@ -1,3 +1,12 @@
+export interface Responsible {
+  id: string
+  name: string
+  phone: string
+  email: string
+  created: string
+  updated: string
+}
+
 export interface User {
   id: string
   name: string
@@ -16,12 +25,14 @@ export interface ServiceOrder {
   priority: OSPriority
   requester: string
   assignee?: string
+  responsible?: string
   due_date?: string
   created: string
   updated: string
   expand?: {
     requester?: User
     assignee?: User
+    responsible?: Responsible
   }
 }
 

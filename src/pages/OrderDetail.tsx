@@ -8,10 +8,11 @@ import {
   updateServiceOrder,
   deleteServiceOrder,
   getUsers,
+  getResponsibles,
   sendWhatsAppMessage,
 } from '@/services/api'
 import { useRealtime } from '@/hooks/use-realtime'
-import type { ServiceOrder, User } from '@/types/models'
+import type { ServiceOrder, User, Responsible } from '@/types/models'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { StatusBadge } from '@/components/badges'
 import { Button } from '@/components/ui/button'
@@ -73,6 +74,7 @@ const editSchema = z.object({
   priority: z.enum(['baixa', 'media', 'alta', 'urgente']),
   status: z.enum(['aguardando', 'planejamento', 'executando', 'finalizado', 'cancelado']),
   assignee: z.string().optional(),
+  responsible: z.string().optional(),
   due_date: z.date().optional(),
 })
 
@@ -81,6 +83,7 @@ export default function OrderDetail() {
   const navigate = useNavigate()
   const [order, setOrder] = useState<ServiceOrder | null>(null)
   const [users, setUsers] = useState<User[]>([])
+  const [responsibles, setResponsibles] = useState<Responsible[]>([])
 
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -108,6 +111,7 @@ export default function OrderDetail() {
   useEffect(() => {
     load()
     getUsers().then(setUsers)
+    getResponsibles().then(setResponsibles)
   }, [id])
 
   useRealtime('service_orders', load)
@@ -120,6 +124,7 @@ export default function OrderDetail() {
         priority: order.priority,
         status: order.status,
         assignee: order.assignee || 'none',
+        responsible: order.responsible || 'none',
         due_date: order.due_date ? parseISO(order.due_date) : undefined,
       })
     }
@@ -142,6 +147,7 @@ export default function OrderDetail() {
       const data = {
         ...values,
         assignee: values.assignee === 'none' ? '' : values.assignee,
+        responsible: values.responsible === 'none' ? '' : values.responsible,
         due_date: values.due_date ? values.due_date.toISOString() : '',
       }
       await updateServiceOrder(order.id, data)
@@ -272,7 +278,7 @@ export default function OrderDetail() {
               </div>
 
               <div className="space-y-2">
-                <Label>Responsável</Label>
+                <Label>Técnico Atribuído</Label>
                 <Select
                   value={order.assignee || 'none'}
                   onValueChange={(v) => handleUpdate('assignee', v)}
@@ -290,6 +296,38 @@ export default function OrderDetail() {
                   </SelectContent>
                 </Select>
               </div>
+
+              <div className="space-y-2">
+                <Label>Responsável / Contato</Label>
+                <Select
+                  value={order.responsible || 'none'}
+                  onValueChange={(v) => handleUpdate('responsible', v)}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Sem responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sem responsável</SelectItem>
+                    {responsibles.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {order.expand?.responsible && (
+                <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm space-y-2 mt-4">
+                  <p className="font-medium text-blue-900">{order.expand.responsible.name}</p>
+                  <p className="text-blue-700 flex items-center gap-2">
+                    <span className="font-medium">Telefone:</span> {order.expand.responsible.phone}
+                  </p>
+                  <p className="text-blue-700 flex items-center gap-2">
+                    <span className="font-medium">Email:</span> {order.expand.responsible.email}
+                  </p>
+                </div>
+              )}
 
               <div className="pt-4 border-t space-y-4">
                 <div className="flex items-center justify-between text-sm">
@@ -400,7 +438,7 @@ export default function OrderDetail() {
                 name="assignee"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Responsável</FormLabel>
+                    <FormLabel>Técnico Atribuído</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -412,6 +450,31 @@ export default function OrderDetail() {
                         {users.map((u) => (
                           <SelectItem key={u.id} value={u.id}>
                             {u.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="responsible"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Responsável (Contato)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Sem responsável</SelectItem>
+                        {responsibles.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

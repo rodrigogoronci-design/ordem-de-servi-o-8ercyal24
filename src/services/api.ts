@@ -1,13 +1,15 @@
 import pb from '@/lib/pocketbase/client'
-import type { ServiceOrder, Comment, User, Integration } from '@/types/models'
+import type { ServiceOrder, Comment, User, Integration, Responsible } from '@/types/models'
 
 export const getServiceOrders = () =>
   pb
     .collection('service_orders')
-    .getFullList<ServiceOrder>({ expand: 'requester,assignee', sort: '-created' })
+    .getFullList<ServiceOrder>({ expand: 'requester,assignee,responsible', sort: '-created' })
 
 export const getServiceOrder = (id: string) =>
-  pb.collection('service_orders').getOne<ServiceOrder>(id, { expand: 'requester,assignee' })
+  pb
+    .collection('service_orders')
+    .getOne<ServiceOrder>(id, { expand: 'requester,assignee,responsible' })
 
 export const createServiceOrder = (data: Partial<ServiceOrder>) =>
   pb.collection('service_orders').create<ServiceOrder>(data)
@@ -33,6 +35,17 @@ export const deleteComment = (id: string) => pb.collection('comments').delete(id
 export const deleteServiceOrder = (id: string) => pb.collection('service_orders').delete(id)
 
 export const getUsers = () => pb.collection('users').getFullList<User>({ sort: 'name' })
+
+export const getResponsibles = () =>
+  pb.collection('responsibles').getFullList<Responsible>({ sort: 'name' })
+
+export const createResponsible = (data: Partial<Responsible>) =>
+  pb.collection('responsibles').create<Responsible>(data)
+
+export const updateResponsible = (id: string, data: Partial<Responsible>) =>
+  pb.collection('responsibles').update<Responsible>(id, data)
+
+export const deleteResponsible = (id: string) => pb.collection('responsibles').delete(id)
 
 export const getIntegrations = () =>
   pb.collection('integrations').getFullList<Integration>({ sort: 'name' })

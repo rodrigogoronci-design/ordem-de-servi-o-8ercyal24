@@ -88,7 +88,8 @@ export default function Orders() {
               <TableHead>Título</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Prioridade</TableHead>
-              <TableHead>Responsável</TableHead>
+              <TableHead>Técnico</TableHead>
+              <TableHead>Responsável/Contato</TableHead>
               <TableHead className="hidden md:table-cell">Data Criação</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
@@ -96,7 +97,7 @@ export default function Orders() {
           <TableBody>
             {orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">
                   Nenhuma ordem de serviço encontrada.
                 </TableCell>
               </TableRow>
@@ -118,6 +119,11 @@ export default function Orders() {
                   <TableCell>
                     {order.expand?.assignee?.name || (
                       <span className="text-slate-400 text-sm">Não atribuído</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {order.expand?.responsible?.name || (
+                      <span className="text-slate-400 text-sm">-</span>
                     )}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-slate-500">

@@ -4,7 +4,7 @@ import { SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet
 import { StatusBadge, PriorityBadge } from '@/components/badges'
 import type { ServiceOrder } from '@/types/models'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { CalendarIcon, User } from 'lucide-react'
+import { CalendarIcon, User, Phone, Mail } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 export function OSQuickView({ order }: { order: ServiceOrder }) {
@@ -49,7 +49,7 @@ export function OSQuickView({ order }: { order: ServiceOrder }) {
 
           <div className="space-y-1.5">
             <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">
-              Responsável
+              Técnico Atribuído
             </span>
             {order.expand?.assignee ? (
               <div className="flex items-center gap-2">
@@ -82,6 +82,31 @@ export function OSQuickView({ order }: { order: ServiceOrder }) {
             </div>
           </div>
         </div>
+
+        {order.expand?.responsible && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <span className="text-slate-500 text-xs font-medium uppercase tracking-wider">
+                Responsável (Contato)
+              </span>
+              <div className="bg-slate-50 p-3 rounded-md space-y-2 text-slate-700">
+                <p className="font-medium flex items-center gap-2">
+                  <User className="h-4 w-4 text-slate-400" />
+                  {order.expand.responsible.name}
+                </p>
+                <p className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-slate-400" />
+                  {order.expand.responsible.phone}
+                </p>
+                <p className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  {order.expand.responsible.email}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   )

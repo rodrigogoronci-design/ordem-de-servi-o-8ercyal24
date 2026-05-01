@@ -4,8 +4,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useAuth } from '@/hooks/use-auth'
-import { createServiceOrder, getUsers } from '@/services/api'
-import type { User } from '@/types/models'
+import { createServiceOrder, getUsers, getResponsibles } from '@/services/api'
+import type { User, Responsible } from '@/types/models'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -38,6 +38,7 @@ const formSchema = z.object({
   description: z.string().optional(),
   priority: z.enum(['baixa', 'media', 'alta', 'urgente']),
   assignee: z.string().optional(),
+  responsible: z.string().optional(),
   due_date: z.date().optional(),
 })
 
@@ -45,15 +46,23 @@ export default function OrderNew() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [users, setUsers] = useState<User[]>([])
+  const [responsibles, setResponsibles] = useState<Responsible[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     getUsers().then(setUsers).catch(console.error)
+    getResponsibles().then(setResponsibles).catch(console.error)
   }, [])
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: { title: '', description: '', priority: 'media', assignee: 'none' },
+    defaultValues: {
+      title: '',
+      description: '',
+      priority: 'media',
+      assignee: 'none',
+      responsible: 'none',
+    },
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -64,6 +73,7 @@ export default function OrderNew() {
         status: 'aguardando' as const,
         requester: user.id,
         assignee: values.assignee === 'none' ? undefined : values.assignee || undefined,
+        responsible: values.responsible === 'none' ? undefined : values.responsible || undefined,
         due_date: values.due_date ? values.due_date.toISOString() : undefined,
       }
       await createServiceOrder(data)
@@ -192,8 +202,34 @@ export default function OrderNew() {
                   control={form.control}
                   name="assignee"
                   render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel>Atribuir para (Opcional)</FormLabel>
+                    <FormItem>
+                      <FormLabel>Técnico Atribuído (Opcional)</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um técnico..." />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Deixar em aberto</SelectItem>
+                          {users.map((u) => (
+                            <SelectItem key={u.id} value={u.id}>
+                              {u.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="responsible"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsável/Contato (Opcional)</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
@@ -202,9 +238,9 @@ export default function OrderNew() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="none">Deixar em aberto</SelectItem>
-                          {users.map((u) => (
-                            <SelectItem key={u.id} value={u.id}>
-                              {u.name}
+                          {responsibles.map((r) => (
+                            <SelectItem key={r.id} value={r.id}>
+                              {r.name}
                             </SelectItem>
                           ))}
                         </SelectContent>

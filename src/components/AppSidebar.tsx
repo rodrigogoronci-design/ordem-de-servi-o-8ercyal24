@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, KanbanSquare, FileText, Settings, Layers } from 'lucide-react'
+import { LayoutDashboard, KanbanSquare, FileText, Settings, Users } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -15,6 +15,7 @@ const navigation = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Pipeline', url: '/pipeline', icon: KanbanSquare },
   { title: 'Ordens de Serviço', url: '/orders', icon: FileText },
+  { title: 'Responsáveis', url: '/settings/responsibles', icon: Users },
   { title: 'Configurações', url: '/settings/integrations', icon: Settings },
 ]
 

@@ -104,6 +104,11 @@ export default function Pipeline() {
                             <p className="font-medium text-sm leading-snug line-clamp-2">
                               {order.title}
                             </p>
+                            {order.expand?.responsible && (
+                              <p className="text-xs text-slate-500 truncate mt-1">
+                                Resp: {order.expand.responsible.name}
+                              </p>
+                            )}
                             <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
                               <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                 <Clock className="w-3.5 h-3.5" />
@@ -112,7 +117,10 @@ export default function Pipeline() {
                                   : '--/--'}
                               </div>
                               {order.expand?.assignee && (
-                                <Avatar className="w-6 h-6 border border-white shadow-sm">
+                                <Avatar
+                                  className="w-6 h-6 border border-white shadow-sm"
+                                  title={`Técnico: ${order.expand.assignee.name}`}
+                                >
                                   <AvatarFallback className="bg-secondary text-white text-[10px]">
                                     {order.expand.assignee.name.charAt(0)}
                                   </AvatarFallback>
