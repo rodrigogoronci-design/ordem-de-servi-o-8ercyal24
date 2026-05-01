@@ -1,5 +1,5 @@
 import pb from '@/lib/pocketbase/client'
-import type { ServiceOrder, Comment, User } from '@/types/models'
+import type { ServiceOrder, Comment, User, Integration } from '@/types/models'
 
 export const getServiceOrders = () =>
   pb
@@ -33,3 +33,11 @@ export const deleteComment = (id: string) => pb.collection('comments').delete(id
 export const deleteServiceOrder = (id: string) => pb.collection('service_orders').delete(id)
 
 export const getUsers = () => pb.collection('users').getFullList<User>({ sort: 'name' })
+
+export const getIntegrations = () =>
+  pb.collection('integrations').getFullList<Integration>({ sort: 'name' })
+
+export const getIntegration = (id: string) => pb.collection('integrations').getOne<Integration>(id)
+
+export const updateIntegration = (id: string, data: Partial<Integration>) =>
+  pb.collection('integrations').update<Integration>(id, data)

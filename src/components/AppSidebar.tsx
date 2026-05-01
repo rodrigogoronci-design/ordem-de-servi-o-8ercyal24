@@ -15,7 +15,7 @@ const navigation = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Pipeline', url: '/pipeline', icon: KanbanSquare },
   { title: 'Ordens de Serviço', url: '/orders', icon: FileText },
-  { title: 'Configurações', url: '#', icon: Settings },
+  { title: 'Configurações', url: '/settings/integrations', icon: Settings },
 ]
 
 export function AppSidebar() {

@@ -35,3 +35,14 @@ export interface Comment {
     user?: User
   }
 }
+
+export interface Integration {
+  id: string
+  name: string
+  api_url: string
+  domain: string
+  auth_token: string
+  test_phone?: string
+  created: string
+  updated: string
+}

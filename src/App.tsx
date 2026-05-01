@@ -10,6 +10,7 @@ import Orders from '@/pages/Orders'
 import OrderNew from '@/pages/OrderNew'
 import OrderDetail from '@/pages/OrderDetail'
 import NotFound from '@/pages/NotFound'
+import SettingsIntegrations from '@/pages/SettingsIntegrations'
 import { AuthProvider } from '@/hooks/use-auth'
 
 const App = () => (
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/new" element={<OrderNew />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/settings/integrations" element={<SettingsIntegrations />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
