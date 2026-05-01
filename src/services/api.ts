@@ -55,9 +55,8 @@ export const getIntegration = (id: string) => pb.collection('integrations').getO
 export const updateIntegration = (id: string, data: Partial<Integration>) =>
   pb.collection('integrations').update<Integration>(id, data)
 
-export const sendWhatsAppMessage = (orderId: string, phone: string) =>
+export const sendWhatsAppMessage = (orderId: string) =>
   pb.send(`/backend/v1/orders/${orderId}/whatsapp`, {
     method: 'POST',
-    body: JSON.stringify({ phone }),
     headers: { 'Content-Type': 'application/json' },
   })

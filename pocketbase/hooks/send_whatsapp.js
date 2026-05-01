@@ -2,72 +2,78 @@ routerAdd(
   'POST',
   '/backend/v1/orders/{id}/whatsapp',
   (e) => {
-    const id = e.request.pathValue('id')
-    const body = e.requestInfo().body || {}
-    const phone = body.phone
+    const orderId = e.request.pathValue('id')
+    let order
 
-    if (!phone || !/^\d{10,11}$/.test(phone)) {
+    try {
+      order = $app.findRecordById('service_orders', orderId)
+    } catch (_) {
+      return e.notFoundError('OS não encontrada.')
+    }
+
+    try {
+      $app.expandRecord(order, ['responsible'])
+    } catch (_) {}
+
+    const responsible = order.expandedOne('responsible')
+    if (!responsible) {
       return e.badRequestError(
-        'Número de telefone inválido. Use o formato DDD99999999 (apenas números).',
+        'Falha ao enviar: Nenhum responsável atribuído a esta ordem de serviço.',
       )
     }
 
-    const order = $app.findRecordById('service_orders', id)
+    const phoneRaw = responsible.getString('phone')
+    const phone = phoneRaw ? phoneRaw.replace(/\D/g, '') : ''
+
+    if (!phone) {
+      return e.badRequestError(
+        'Falha ao enviar: Nenhum responsável atribuído a esta ordem de serviço.',
+      )
+    }
 
     let integration
     try {
-      integration = $app.findFirstRecordByFilter('integrations', "domain='servicelogic'")
-    } catch (_) {
-      return e.badRequestError("Integração 'servicelogic' não configurada.")
+      const integrations = $app.findRecordsByFilter('integrations', '1=1', '-created', 1, 0)
+      if (integrations.length > 0) {
+        integration = integrations[0]
+      }
+    } catch (_) {}
+
+    if (!integration) {
+      return e.badRequestError('Falha ao enviar mensagem via WhatsApp.')
     }
 
     const apiUrl = integration.getString('api_url')
-    const authToken = integration.getString('auth_token')
+    let token = integration.getString('auth_token')
 
-    if (!apiUrl || !authToken) {
-      return e.badRequestError("Configurações da integração 'servicelogic' incompletas.")
+    if (token && !token.toLowerCase().startsWith('bearer ')) {
+      token = 'Bearer ' + token
     }
 
-    const title = order.getString('title')
-    const status = order.getString('status')
-    const priority = order.getString('priority')
-    const description = order.getString('description')
+    const desc = order.getString('description') || ''
+    const msg = `ID: ${order.id}\nTítulo: ${order.getString('title')}\nStatus: ${order.getString('status')}\nPrioridade: ${order.getString('priority')}\nDescrição: ${desc}`
 
-    const content = `[ID: ${id}] [Título: ${title}] [Status: ${status}] [Prioridade: ${priority}] [Descrição: ${description}]`
+    try {
+      const res = $http.send({
+        url: apiUrl,
+        method: 'POST',
+        body: JSON.stringify({ phone: phone, message: msg }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+        },
+        timeout: 15,
+      })
 
-    const payload = {
-      destinatario: phone,
-      conteudo: content,
-      prioridade: 'HIGH',
-      parametros: {},
-      metadata: {
-        whatsappTipoMensagem: 'TEXT',
-      },
-    }
-
-    const res = $http.send({
-      url: apiUrl,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify(payload),
-      timeout: 15,
-    })
-
-    if (res.statusCode >= 400) {
-      const errJson = res.json || {}
-      $app
-        .logger()
-        .error(
-          'Erro ao enviar WhatsApp',
-          'status',
-          res.statusCode,
-          'response',
-          JSON.stringify(errJson),
-        )
-      return e.internalServerError('Falha ao enviar mensagem via WhatsApp.')
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        $app
+          .logger()
+          .error('WhatsApp API Error', 'status', res.statusCode, 'body', res.json || res.body)
+        return e.badRequestError('Falha ao enviar mensagem via WhatsApp.')
+      }
+    } catch (err) {
+      $app.logger().error('WhatsApp request failed', 'error', err.message)
+      return e.badRequestError('Falha ao enviar mensagem via WhatsApp.')
     }
 
     return e.json(200, { success: true })

@@ -89,8 +89,6 @@ export default function OrderDetail() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false)
-  const [waPhone, setWaPhone] = useState('')
   const [isSendingWa, setIsSendingWa] = useState(false)
 
   const form = useForm<z.infer<typeof editSchema>>({
@@ -172,18 +170,17 @@ export default function OrderDetail() {
   }
 
   const handleSendWhatsApp = async () => {
-    if (!/^\d{10,11}$/.test(waPhone)) {
-      toast.error('Formato inválido. Use apenas números, incluindo o DDD (ex: 11999999999)')
+    if (!order.expand?.responsible || !order.expand.responsible.phone) {
+      toast.error('Falha ao enviar: Nenhum responsável atribuído a esta ordem de serviço.')
       return
     }
+
     setIsSendingWa(true)
     try {
-      await sendWhatsAppMessage(order.id, waPhone)
-      toast.success('Mensagem enviada com sucesso!')
-      setIsWhatsAppOpen(false)
-      setWaPhone('')
+      await sendWhatsAppMessage(order.id)
+      toast.success(`Mensagem enviada com sucesso para ${order.expand.responsible.name}`)
     } catch (error: any) {
-      toast.error(error?.response?.message || 'Erro ao enviar mensagem pelo WhatsApp')
+      toast.error(error?.response?.message || 'Falha ao enviar mensagem via WhatsApp.')
     } finally {
       setIsSendingWa(false)
     }
@@ -205,8 +202,8 @@ export default function OrderDetail() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto ml-14 sm:ml-0">
-          <Button variant="outline" onClick={() => setIsWhatsAppOpen(true)}>
-            <MessageCircle className="w-4 h-4 mr-2" /> WhatsApp
+          <Button variant="outline" onClick={handleSendWhatsApp} disabled={isSendingWa}>
+            <MessageCircle className="w-4 h-4 mr-2" /> {isSendingWa ? 'Enviando...' : 'WhatsApp'}
           </Button>
           <Button variant="outline" onClick={() => setIsEditOpen(true)}>
             <Edit className="w-4 h-4 mr-2" /> Editar
@@ -546,42 +543,6 @@ export default function OrderDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={isWhatsAppOpen} onOpenChange={setIsWhatsAppOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Enviar Ordem de Serviço via WhatsApp</DialogTitle>
-            <DialogDescription>
-              Informe o número de telefone para enviar os detalhes desta OS. O formato deve ser o
-              DDD + Número (ex: 11999999999).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <div className="space-y-2">
-              <Label htmlFor="phone">Número do WhatsApp</Label>
-              <Input
-                id="phone"
-                placeholder="11999999999"
-                value={waPhone}
-                onChange={(e) => setWaPhone(e.target.value.replace(/\D/g, ''))}
-                maxLength={11}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsWhatsAppOpen(false)}
-              disabled={isSendingWa}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleSendWhatsApp} disabled={isSendingWa || waPhone.length < 10}>
-              {isSendingWa ? 'Enviando...' : 'Enviar Mensagem'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
