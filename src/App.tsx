@@ -9,6 +9,7 @@ import Pipeline from '@/pages/Pipeline'
 import Orders from '@/pages/Orders'
 import OrderNew from '@/pages/OrderNew'
 import OrderDetail from '@/pages/OrderDetail'
+import Reports from '@/pages/Reports'
 import NotFound from '@/pages/NotFound'
 import SettingsIntegrations from '@/pages/SettingsIntegrations'
 import SettingsResponsibles from '@/pages/SettingsResponsibles'
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/new" element={<OrderNew />} />
             <Route path="/orders/:id" element={<OrderDetail />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/settings/integrations" element={<SettingsIntegrations />} />
             <Route path="/settings/responsibles" element={<SettingsResponsibles />} />
             <Route path="/settings/templates" element={<SettingsTemplates />} />

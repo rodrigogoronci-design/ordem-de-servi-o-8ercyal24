@@ -7,6 +7,7 @@ import {
   Users,
   UserCog,
   MessageSquare,
+  BarChart2,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -23,6 +24,7 @@ const navigation = [
   { title: 'Dashboard', url: '/', icon: LayoutDashboard },
   { title: 'Pipeline', url: '/pipeline', icon: KanbanSquare },
   { title: 'Ordens de Serviço', url: '/orders', icon: FileText },
+  { title: 'Relatórios', url: '/reports', icon: BarChart2 },
   { title: 'Usuários', url: '/settings/users', icon: Users },
   { title: 'Responsáveis', url: '/settings/responsibles', icon: UserCog },
   { title: 'Templates', url: '/settings/templates', icon: MessageSquare },
@@ -53,7 +55,12 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => {
-                if (!isAdmin && (item.title === 'Templates' || item.title === 'Configurações')) {
+                if (
+                  !isAdmin &&
+                  (item.title === 'Templates' ||
+                    item.title === 'Configurações' ||
+                    item.title === 'Relatórios')
+                ) {
                   return null
                 }
                 const isActive =

@@ -11,11 +11,14 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts'
 import { getServiceOrders } from '@/services/api'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useAuth } from '@/hooks/use-auth'
 import type { ServiceOrder } from '@/types/models'
-import { format } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 export default function Dashboard() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
   const [orders, setOrders] = useState<ServiceOrder[]>([])
 
   const loadData = async () => {
@@ -32,10 +35,43 @@ export default function Dashboard() {
   }, [])
   useRealtime('service_orders', loadData)
 
+  const now = new Date()
+  const currentMonth = now.getMonth()
+  const currentYear = now.getFullYear()
+
   const openOrders = orders.filter(
     (o) => o.status !== 'finalizado' && o.status !== 'cancelado',
   ).length
-  const doneOrders = orders.filter((o) => o.status === 'finalizado').length
+
+  const finalizedOrders = orders.filter((o) => o.status === 'finalizado')
+
+  const finalizedThisMonth = finalizedOrders.filter((o) => {
+    const updated = new Date(o.updated)
+    return updated.getMonth() === currentMonth && updated.getFullYear() === currentYear
+  }).length
+
+  let avgCompletionTime = 0
+  if (finalizedOrders.length > 0) {
+    const totalDays = finalizedOrders.reduce((acc, o) => {
+      const created = new Date(o.created).getTime()
+      const updated = new Date(o.updated).getTime()
+      return acc + (updated - created) / (1000 * 60 * 60 * 24)
+    }, 0)
+    avgCompletionTime = totalDays / finalizedOrders.length
+  }
+
+  // Performance Chart Data (last 30 days)
+  const performanceData = Array.from({ length: 30 }).map((_, i) => {
+    const d = subDays(new Date(), 29 - i)
+    const dateStr = format(d, 'yyyy-MM-dd')
+    const count = finalizedOrders.filter(
+      (o) => format(new Date(o.updated), 'yyyy-MM-dd') === dateStr,
+    ).length
+    return {
+      date: format(d, 'dd/MM'),
+      finalizados: count,
+    }
+  })
 
   const statusCounts = orders.reduce(
     (acc, order) => {
@@ -81,11 +117,25 @@ export default function Dashboard() {
   }
 
   const metrics = [
-    { title: 'Total de OS', value: orders.length, icon: FileText, color: 'text-primary' },
-    { title: 'Em Aberto', value: openOrders, icon: AlertCircle, color: 'text-secondary' },
-    { title: 'Concluídas', value: doneOrders, icon: CheckCircle2, color: 'text-green-600' },
-    { title: 'Média de Resolução', value: '2.4 dias', icon: TrendingUp, color: 'text-blue-600' },
+    { title: 'Total Ativas', value: openOrders, icon: AlertCircle, color: 'text-orange-500' },
+    {
+      title: 'Finalizadas neste Mês',
+      value: finalizedThisMonth,
+      icon: CheckCircle2,
+      color: 'text-green-600',
+    },
+    {
+      title: 'Tempo Médio de Resolução',
+      value: `${avgCompletionTime.toFixed(1)} dias`,
+      icon: TrendingUp,
+      color: 'text-blue-600',
+    },
+    { title: 'Total Geral de OS', value: orders.length, icon: FileText, color: 'text-primary' },
   ]
+
+  const chartConfigPerformance = {
+    finalizados: { label: 'OS Finalizadas', color: 'hsl(var(--primary))' },
+  }
 
   return (
     <div className="space-y-8">
@@ -109,6 +159,30 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {isAdmin && (
+        <Card className="shadow-sm border-none">
+          <CardHeader>
+            <CardTitle>Performance (Últimos 30 Dias)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-[300px]">
+            <ChartContainer config={chartConfigPerformance} className="w-full h-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={performanceData}>
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} fontSize={12} />
+                  <YAxis tickLine={false} axisLine={false} fontSize={12} allowDecimals={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar
+                    dataKey="finalizados"
+                    fill="var(--color-finalizados)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card className="col-span-2 shadow-sm border-none">

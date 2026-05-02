@@ -45,6 +45,7 @@ import {
   Clock,
   History,
   FileText,
+  Calendar as CalendarIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -215,6 +216,23 @@ export default function OrderDetail() {
     return <Badge variant="secondary">{s}</Badge>
   }
 
+  const getGoogleCalendarUrl = () => {
+    if (!order?.due_date) return '#'
+    const title = encodeURIComponent(`OS #${order.id} - ${order.title}`)
+    const details = encodeURIComponent(order.description || '')
+
+    // Add 1 hour to the start date for a default duration
+    const startDate = new Date(order.due_date)
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000)
+
+    const formatDate = (date: Date) => {
+      return date.toISOString().replace(/-|:|\.\d\d\d/g, '')
+    }
+
+    const dates = `${formatDate(startDate)}/${formatDate(endDate)}`
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${dates}`
+  }
+
   if (!order) return null
 
   return (
@@ -227,7 +245,20 @@ export default function OrderDetail() {
           <h2 className="text-3xl font-bold tracking-tight">{order.title}</h2>
           <p className="text-muted-foreground">OS #{order.id}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => window.open(getGoogleCalendarUrl(), '_blank')}
+            disabled={!order.due_date}
+            title={
+              !order.due_date
+                ? 'Defina uma data de vencimento primeiro'
+                : 'Adicionar ao Google Calendar'
+            }
+          >
+            <CalendarIcon className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">Google Calendar</span>
+          </Button>
           <Button
             onClick={() => setIsNotificationOpen(true)}
             className="bg-green-600 hover:bg-green-700"
