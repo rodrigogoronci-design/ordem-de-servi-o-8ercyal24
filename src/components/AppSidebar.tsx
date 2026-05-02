@@ -29,8 +29,12 @@ const navigation = [
   { title: 'Configurações', url: '/settings/integrations', icon: Settings },
 ]
 
+import { useAuth } from '@/hooks/use-auth'
+
 export function AppSidebar() {
   const location = useLocation()
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
 
   return (
     <Sidebar>
@@ -49,6 +53,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.map((item) => {
+                if (!isAdmin && (item.title === 'Templates' || item.title === 'Configurações')) {
+                  return null
+                }
                 const isActive =
                   location.pathname === item.url ||
                   (item.url !== '/' && location.pathname.startsWith(item.url))

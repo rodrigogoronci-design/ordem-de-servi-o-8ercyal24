@@ -13,9 +13,16 @@ export interface User {
   email: string
   avatar: string
   phone?: string
+  role?: 'admin' | 'colaborador'
 }
 
-export type OSStatus = 'aguardando' | 'planejamento' | 'executando' | 'finalizado' | 'cancelado'
+export type OSStatus =
+  | 'aguardando'
+  | 'planejamento'
+  | 'executando'
+  | 'finalizado'
+  | 'cancelado'
+  | 'notificado'
 export type OSPriority = 'baixa' | 'media' | 'alta' | 'urgente'
 
 export interface ServiceOrder {
@@ -66,4 +73,19 @@ export interface Integration {
   test_phone?: string
   created: string
   updated: string
+}
+
+export interface NotificationLog {
+  id: string
+  service_order: string
+  recipient_name: string
+  recipient_phone: string
+  content: string
+  status: string
+  sent_by: string
+  created: string
+  updated: string
+  expand?: {
+    sent_by?: User
+  }
 }

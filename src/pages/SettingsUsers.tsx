@@ -5,6 +5,7 @@ import * as z from 'zod'
 import { getUsers, updateUser } from '@/services/api'
 import type { User } from '@/types/models'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -41,6 +42,9 @@ const formSchema = z.object({
 })
 
 export default function SettingsUsers() {
+  const { user } = useAuth()
+  const isColaborador = user?.role === 'colaborador'
+
   const [users, setUsers] = useState<User[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -124,11 +128,19 @@ export default function SettingsUsers() {
                 <TableRow key={u.id}>
                   <TableCell className="font-medium">{u.name || '-'}</TableCell>
                   <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.phone || '-'}</TableCell>
+                  <TableCell>
+                    {u.phone
+                      ? isColaborador
+                        ? u.phone.replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) 9****-$3')
+                        : u.phone
+                      : '-'}
+                  </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(u)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
+                    {!isColaborador && (
+                      <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(u)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

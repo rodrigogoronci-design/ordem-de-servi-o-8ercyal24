@@ -1,5 +1,13 @@
 import pb from '@/lib/pocketbase/client'
-import type { ServiceOrder, Comment, User, Integration, Responsible } from '@/types/models'
+import type {
+  ServiceOrder,
+  Comment,
+  User,
+  Integration,
+  Responsible,
+  NotificationLog,
+  NotificationTemplate,
+} from '@/types/models'
 
 export const getServiceOrders = () =>
   pb
@@ -75,4 +83,18 @@ export const sendWhatsAppMessage = (orderId: string, payload?: any) =>
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: payload ? JSON.stringify(payload) : undefined,
+  })
+
+export const logWhatsAppWeb = (orderId: string, payload: any) =>
+  pb.send(`/backend/v1/orders/${orderId}/whatsapp_log`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+
+export const getNotificationLogs = (orderId: string) =>
+  pb.collection('notification_logs').getFullList<NotificationLog>({
+    filter: `service_order = '${orderId}'`,
+    sort: '-created',
+    expand: 'sent_by',
   })

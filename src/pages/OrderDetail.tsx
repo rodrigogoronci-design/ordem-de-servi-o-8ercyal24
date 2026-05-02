@@ -9,8 +9,10 @@ import {
   createComment,
   getNotificationTemplates,
   sendWhatsAppMessage,
+  logWhatsAppWeb,
+  getNotificationLogs,
 } from '@/services/api'
-import type { ServiceOrder, Comment, NotificationTemplate } from '@/types/models'
+import type { ServiceOrder, Comment, NotificationTemplate, NotificationLog } from '@/types/models'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
@@ -34,9 +36,26 @@ import {
 } from '@/components/ui/select'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
-import { MessageCircle, Send, ExternalLink, ArrowLeft, Clock } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  MessageCircle,
+  Send,
+  ExternalLink,
+  ArrowLeft,
+  Clock,
+  History,
+  FileText,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>()
@@ -46,6 +65,7 @@ export default function OrderDetail() {
   const [order, setOrder] = useState<ServiceOrder | null>(null)
   const [comments, setComments] = useState<Comment[]>([])
   const [templates, setTemplates] = useState<NotificationTemplate[]>([])
+  const [logs, setLogs] = useState<NotificationLog[]>([])
   const [newComment, setNewComment] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -73,6 +93,15 @@ export default function OrderDetail() {
     }
   }
 
+  const loadLogs = async () => {
+    if (!id) return
+    try {
+      setLogs(await getNotificationLogs(id))
+    } catch {
+      /* intentionally ignored */
+    }
+  }
+
   const loadTemplates = async () => {
     try {
       const data = await getNotificationTemplates()
@@ -87,6 +116,7 @@ export default function OrderDetail() {
     loadOrder()
     loadComments()
     loadTemplates()
+    loadLogs()
   }, [id])
 
   useRealtime('service_orders', (e) => {
@@ -94,6 +124,9 @@ export default function OrderDetail() {
   })
   useRealtime('comments', (e) => {
     if (e.record.service_order === id) loadComments()
+  })
+  useRealtime('notification_logs', (e) => {
+    if (e.record.service_order === id) loadLogs()
   })
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -112,9 +145,9 @@ export default function OrderDetail() {
   }
 
   const getMessagePreview = () => {
-    if (!selectedTemplateId || !order) return { content: '', phone: '' }
+    if (!selectedTemplateId || !order) return { content: '', phone: '', name: '' }
     const template = templates.find((t) => t.id === selectedTemplateId)
-    if (!template) return { content: '', phone: '' }
+    if (!template) return { content: '', phone: '', name: '' }
 
     let nome = ''
     let phone = ''
@@ -132,10 +165,10 @@ export default function OrderDetail() {
     content = content.replace(/{status}/g, order.status)
     content = content.replace(/{id}/g, order.id)
 
-    return { content, phone }
+    return { content, phone, name: nome }
   }
 
-  const { content: previewContent, phone: previewPhone } = getMessagePreview()
+  const { content: previewContent, phone: previewPhone, name: previewName } = getMessagePreview()
 
   const handleSendApi = async () => {
     if (!previewPhone) {
@@ -153,7 +186,7 @@ export default function OrderDetail() {
     }
   }
 
-  const handleOpenWhatsAppWeb = () => {
+  const handleOpenWhatsAppWeb = async () => {
     if (!previewPhone) {
       toast.error('Destinatário selecionado não possui telefone cadastrado.')
       return
@@ -161,7 +194,25 @@ export default function OrderDetail() {
     const cleanPhone = previewPhone.replace(/\D/g, '')
     const encoded = encodeURIComponent(previewContent)
     window.open(`https://wa.me/${cleanPhone}?text=${encoded}`, '_blank')
+
+    try {
+      await logWhatsAppWeb(id!, {
+        recipient_name: previewName,
+        recipient_phone: previewPhone,
+        content: previewContent,
+      })
+    } catch (e) {
+      // Ignored
+    }
+
     setIsNotificationOpen(false)
+  }
+
+  const formatStatus = (s: string) => {
+    if (s.includes('sent')) return <Badge className="bg-blue-500">Enviado</Badge>
+    if (s.includes('delivered')) return <Badge className="bg-green-500">Entregue</Badge>
+    if (s.includes('failed')) return <Badge variant="destructive">Falha</Badge>
+    return <Badge variant="secondary">{s}</Badge>
   }
 
   if (!order) return null
@@ -199,102 +250,179 @@ export default function OrderDetail() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Detalhes da Ordem</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <span className="font-semibold text-sm">Descrição</span>
-                <p className="text-muted-foreground mt-1 whitespace-pre-wrap">
-                  {order.description || 'Sem descrição'}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <span className="font-semibold text-sm block mb-1">Status</span>
-                  <Badge variant={order.status === 'finalizado' ? 'default' : 'secondary'}>
-                    {order.status}
-                  </Badge>
-                </div>
-                <div>
-                  <span className="font-semibold text-sm block mb-1">Prioridade</span>
-                  <Badge variant={order.priority === 'urgente' ? 'destructive' : 'outline'}>
-                    {order.priority}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      <Tabs defaultValue="detalhes" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="detalhes">
+            <FileText className="w-4 h-4 mr-2" />
+            Detalhes
+          </TabsTrigger>
+          <TabsTrigger value="historico">
+            <History className="w-4 h-4 mr-2" />
+            Histórico
+          </TabsTrigger>
+        </TabsList>
 
+        <TabsContent value="detalhes">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Detalhes da Ordem</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <span className="font-semibold text-sm">Descrição</span>
+                    <p className="text-muted-foreground mt-1 whitespace-pre-wrap">
+                      {order.description || 'Sem descrição'}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                    <div>
+                      <span className="font-semibold text-sm block mb-1">Status</span>
+                      <Badge
+                        variant={
+                          order.status === 'finalizado'
+                            ? 'default'
+                            : order.status === 'notificado'
+                              ? 'default'
+                              : 'secondary'
+                        }
+                        className={order.status === 'notificado' ? 'bg-green-600' : ''}
+                      >
+                        {order.status}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-sm block mb-1">Prioridade</span>
+                      <Badge variant={order.priority === 'urgente' ? 'destructive' : 'outline'}>
+                        {order.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Comentários</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4 mb-4">
+                    {comments.length === 0 ? (
+                      <p className="text-muted-foreground text-sm">Nenhum comentário ainda.</p>
+                    ) : (
+                      comments.map((c) => (
+                        <div key={c.id} className="bg-slate-50 p-3 rounded-lg text-sm">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-semibold">
+                              {c.expand?.user?.name || 'Usuário'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(c.created), 'dd/MM/yy HH:mm')}
+                            </span>
+                          </div>
+                          <p className="text-slate-700">{c.content}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <form onSubmit={handleAddComment} className="flex gap-2">
+                    <Input
+                      placeholder="Escreva um comentário..."
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                    />
+                    <Button type="submit" disabled={!newComment.trim() || isSubmitting}>
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Envolvidos</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <span className="font-semibold text-sm text-muted-foreground">Solicitante</span>
+                    <p className="font-medium">{order.expand?.requester?.name || '-'}</p>
+                    {order.expand?.requester?.phone && (
+                      <p className="text-xs text-muted-foreground">
+                        {order.expand.requester.phone}
+                      </p>
+                    )}
+                  </div>
+                  <div className="pt-4 border-t">
+                    <span className="font-semibold text-sm text-muted-foreground">Atribuído a</span>
+                    <p className="font-medium">{order.expand?.assignee?.name || 'Não atribuído'}</p>
+                  </div>
+                  <div className="pt-4 border-t">
+                    <span className="font-semibold text-sm text-muted-foreground">
+                      Responsável (Externo)
+                    </span>
+                    <p className="font-medium">
+                      {order.expand?.responsible?.name || 'Não definido'}
+                    </p>
+                    {order.expand?.responsible?.phone && (
+                      <p className="text-xs text-muted-foreground">
+                        {order.expand.responsible.phone}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="historico">
           <Card>
             <CardHeader>
-              <CardTitle>Comentários</CardTitle>
+              <CardTitle>Histórico de Notificações</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4 mb-4">
-                {comments.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Nenhum comentário ainda.</p>
-                ) : (
-                  comments.map((c) => (
-                    <div key={c.id} className="bg-slate-50 p-3 rounded-lg text-sm">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="font-semibold">{c.expand?.user?.name || 'Usuário'}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(c.created), 'dd/MM/yy HH:mm')}
-                        </span>
-                      </div>
-                      <p className="text-slate-700">{c.content}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-              <form onSubmit={handleAddComment} className="flex gap-2">
-                <Input
-                  placeholder="Escreva um comentário..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                />
-                <Button type="submit" disabled={!newComment.trim() || isSubmitting}>
-                  <Send className="w-4 h-4" />
-                </Button>
-              </form>
+              {logs.length === 0 ? (
+                <p className="text-muted-foreground text-sm text-center py-8">
+                  Nenhuma notificação enviada ainda.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Destinatário</TableHead>
+                      <TableHead>Conteúdo</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Enviado Por</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(log.created), 'dd/MM/yyyy HH:mm')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{log.recipient_name}</div>
+                          <div className="text-xs text-muted-foreground">{log.recipient_phone}</div>
+                        </TableCell>
+                        <TableCell className="max-w-[300px] truncate" title={log.content}>
+                          {log.content}
+                        </TableCell>
+                        <TableCell>{formatStatus(log.status)}</TableCell>
+                        <TableCell>{log.expand?.sent_by?.name || 'Sistema'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
             </CardContent>
           </Card>
-        </div>
-
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Envolvidos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <span className="font-semibold text-sm text-muted-foreground">Solicitante</span>
-                <p className="font-medium">{order.expand?.requester?.name || '-'}</p>
-                {order.expand?.requester?.phone && (
-                  <p className="text-xs text-muted-foreground">{order.expand.requester.phone}</p>
-                )}
-              </div>
-              <div className="pt-4 border-t">
-                <span className="font-semibold text-sm text-muted-foreground">Atribuído a</span>
-                <p className="font-medium">{order.expand?.assignee?.name || 'Não atribuído'}</p>
-              </div>
-              <div className="pt-4 border-t">
-                <span className="font-semibold text-sm text-muted-foreground">
-                  Responsável (Externo)
-                </span>
-                <p className="font-medium">{order.expand?.responsible?.name || 'Não definido'}</p>
-                {order.expand?.responsible?.phone && (
-                  <p className="text-xs text-muted-foreground">{order.expand.responsible.phone}</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
         <DialogContent>

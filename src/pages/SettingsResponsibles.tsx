@@ -10,6 +10,7 @@ import {
 } from '@/services/api'
 import type { Responsible } from '@/types/models'
 import { useRealtime } from '@/hooks/use-realtime'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -57,6 +58,9 @@ const formSchema = z.object({
 })
 
 export default function SettingsResponsibles() {
+  const { user } = useAuth()
+  const isColaborador = user?.role === 'colaborador'
+
   const [responsibles, setResponsibles] = useState<Responsible[]>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -137,9 +141,11 @@ export default function SettingsResponsibles() {
           <h2 className="text-3xl font-bold tracking-tight">Responsáveis</h2>
           <p className="text-muted-foreground">Gerencie o cadastro de pessoas responsáveis.</p>
         </div>
-        <Button onClick={handleOpenNew}>
-          <Plus className="mr-2 h-4 w-4" /> Novo Responsável
-        </Button>
+        {!isColaborador && (
+          <Button onClick={handleOpenNew}>
+            <Plus className="mr-2 h-4 w-4" /> Novo Responsável
+          </Button>
+        )}
       </div>
 
       <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
@@ -163,20 +169,28 @@ export default function SettingsResponsibles() {
               responsibles.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="font-medium">{r.name}</TableCell>
-                  <TableCell>{r.phone}</TableCell>
+                  <TableCell>
+                    {isColaborador
+                      ? r.phone.replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) 9****-$3')
+                      : r.phone}
+                  </TableCell>
                   <TableCell>{r.email}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(r)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-red-500 hover:text-red-700"
-                      onClick={() => setDeletingId(r.id)}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
+                    {!isColaborador && (
+                      <>
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(r)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-700"
+                          onClick={() => setDeletingId(r.id)}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
