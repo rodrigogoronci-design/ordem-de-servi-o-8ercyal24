@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-02T09:41:07.689Z",
+  "generatedAt": "2026-05-02T09:55:35.511Z",
   "collections": [
     {
       "name": "users",
@@ -147,11 +147,18 @@
           "type": "date",
           "required": false,
           "system": false
+        },
+        {
+          "name": "order_number",
+          "type": "number",
+          "required": false,
+          "system": false
         }
       ],
       "indexes": [
         "CREATE INDEX idx_so_status ON service_orders (status)",
-        "CREATE INDEX idx_so_priority ON service_orders (priority)"
+        "CREATE INDEX idx_so_priority ON service_orders (priority)",
+        "CREATE UNIQUE INDEX `idx_so_order_number` ON `service_orders` (order_number)"
       ]
     },
     {

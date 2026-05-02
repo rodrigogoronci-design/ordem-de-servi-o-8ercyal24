@@ -31,7 +31,7 @@ routerAdd(
       }
       const phoneRaw = responsible.getString('phone')
       phone = phoneRaw ? phoneRaw.replace(/\D/g, '') : ''
-      msg = `ID: ${order.id}\nTítulo: ${order.getString('title')}\nStatus: ${order.getString('status')}\nPrioridade: ${order.getString('priority')}\nDescrição: ${order.getString('description') || ''}`
+      msg = `OS #${order.getInt('order_number') || order.id}\nTítulo: ${order.getString('title')}\nStatus: ${order.getString('status')}\nPrioridade: ${order.getString('priority')}\nDescrição: ${order.getString('description') || ''}`
       recipientName = responsible.getString('name')
     } else {
       if (

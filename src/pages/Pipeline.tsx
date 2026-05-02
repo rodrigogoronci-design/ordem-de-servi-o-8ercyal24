@@ -98,7 +98,7 @@ export default function Pipeline() {
                                 className="text-[10px] px-1.5 py-0"
                               />
                               <span className="text-xs text-slate-400 font-mono">
-                                #{order.id.slice(0, 5)}
+                                #{order.order_number || order.id.slice(0, 5)}
                               </span>
                             </div>
                             <p className="font-medium text-sm leading-snug line-clamp-2">

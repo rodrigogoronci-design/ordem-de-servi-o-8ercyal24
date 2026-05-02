@@ -231,7 +231,9 @@ export default function Dashboard() {
                     <Clock className="w-4 h-4 text-slate-500" />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none line-clamp-1">{order.title}</p>
+                    <p className="text-sm font-medium leading-none line-clamp-1">
+                      #{order.order_number || order.id.slice(0, 5)} - {order.title}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       Criado em{' '}
                       {format(new Date(order.created), "dd/MM 'às' HH:mm", { locale: ptBR })}

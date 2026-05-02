@@ -27,6 +27,7 @@ export type OSPriority = 'baixa' | 'media' | 'alta' | 'urgente'
 
 export interface ServiceOrder {
   id: string
+  order_number?: number
   title: string
   description: string
   status: OSStatus

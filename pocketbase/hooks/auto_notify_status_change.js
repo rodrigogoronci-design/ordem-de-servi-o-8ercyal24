@@ -38,6 +38,10 @@ onRecordAfterUpdateSuccess((e) => {
   content = content.replace(/{titulo}/g, e.record.getString('title'))
   content = content.replace(/{status}/g, newStatus)
   content = content.replace(/{id}/g, e.record.id)
+  content = content.replace(
+    /{order_number}/g,
+    String(e.record.getInt('order_number') || e.record.id),
+  )
 
   const apiUrl = integration.getString('api_url')
   let token = integration.getString('auth_token')

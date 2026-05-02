@@ -105,7 +105,7 @@ export default function Orders() {
               orders.map((order) => (
                 <TableRow key={order.id} className="hover:bg-slate-50/80 transition-colors">
                   <TableCell className="font-mono text-xs text-slate-500">
-                    #{order.id.slice(0, 5)}
+                    #{order.order_number || order.id.slice(0, 5)}
                   </TableCell>
                   <TableCell className="font-medium max-w-[200px] truncate">
                     {order.title}

@@ -12,7 +12,9 @@ export function OSQuickView({ order }: { order: ServiceOrder }) {
     <>
       <SheetHeader className="mb-6">
         <SheetTitle className="text-xl font-bold flex items-center justify-between mt-4">
-          <span>{order.title}</span>
+          <span>
+            #{order.order_number || order.id.slice(0, 5)} - {order.title}
+          </span>
         </SheetTitle>
         <SheetDescription className="flex gap-2 mt-2">
           <StatusBadge status={order.status} />

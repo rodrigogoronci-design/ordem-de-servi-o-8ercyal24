@@ -165,6 +165,7 @@ export default function OrderDetail() {
     content = content.replace(/{titulo}/g, order.title)
     content = content.replace(/{status}/g, order.status)
     content = content.replace(/{id}/g, order.id)
+    content = content.replace(/{order_number}/g, String(order.order_number || order.id))
 
     return { content, phone, name: nome }
   }
@@ -218,7 +219,7 @@ export default function OrderDetail() {
 
   const getGoogleCalendarUrl = () => {
     if (!order?.due_date) return '#'
-    const title = encodeURIComponent(`OS #${order.id} - ${order.title}`)
+    const title = encodeURIComponent(`OS #${order.order_number || order.id} - ${order.title}`)
     const details = encodeURIComponent(order.description || '')
 
     // Add 1 hour to the start date for a default duration
@@ -243,7 +244,7 @@ export default function OrderDetail() {
         </Button>
         <div className="flex-1">
           <h2 className="text-3xl font-bold tracking-tight">{order.title}</h2>
-          <p className="text-muted-foreground">OS #{order.id}</p>
+          <p className="text-muted-foreground">OS #{order.order_number || order.id}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Button
