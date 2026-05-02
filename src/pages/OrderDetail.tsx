@@ -59,6 +59,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { shareOrderViaWhatsApp } from '@/lib/whatsapp'
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>()
@@ -304,6 +305,15 @@ export default function OrderDetail() {
           >
             <CalendarIcon className="w-4 h-4 mr-2" />
             <span className="hidden sm:inline">Google Calendar</span>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => shareOrderViaWhatsApp(order)}
+            className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+            title="Compartilhar via WhatsApp"
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            <span className="hidden sm:inline">WhatsApp</span>
           </Button>
           {order.due_date && (
             <div className="flex items-center gap-2 text-sm font-medium border rounded-md px-3 py-2 bg-slate-50">

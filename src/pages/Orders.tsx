@@ -12,7 +12,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
-import { Plus, MoreHorizontal, Eye, Printer, Trash } from 'lucide-react'
+import { Plus, MoreHorizontal, Eye, Printer, Trash, MessageCircle } from 'lucide-react'
+import { shareOrderViaWhatsApp } from '@/lib/whatsapp'
 import { StatusBadge, PriorityBadge } from '@/components/badges'
 import {
   DropdownMenu,
@@ -145,6 +146,10 @@ export default function Orders() {
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={simulatePrint}>
                           <Printer className="mr-2 h-4 w-4" /> Imprimir PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => shareOrderViaWhatsApp(order)}>
+                          <MessageCircle className="mr-2 h-4 w-4 text-green-600" /> Compartilhar
+                          (WhatsApp)
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-red-600 focus:text-red-600"
