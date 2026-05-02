@@ -23,7 +23,7 @@ export const getServiceOrder = (id: string) =>
 export const createServiceOrder = (data: Partial<ServiceOrder>) =>
   pb.collection('service_orders').create<ServiceOrder>(data)
 
-export const updateServiceOrder = (id: string, data: Partial<ServiceOrder>) =>
+export const updateServiceOrder = (id: string, data: Partial<ServiceOrder> | FormData) =>
   pb.collection('service_orders').update<ServiceOrder>(id, data)
 
 export const getComments = (orderId: string) =>

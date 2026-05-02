@@ -51,6 +51,7 @@ export interface ServiceOrder {
   responsible?: string
   due_date?: string
   last_notification_sent?: string
+  signature?: string
   created: string
   updated: string
   expand?: {

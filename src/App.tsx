@@ -3,6 +3,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { Toaster as Sonner } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Layout from '@/components/Layout'
+import { NotificationListener } from '@/components/NotificationListener'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import Dashboard from '@/pages/Dashboard'
@@ -16,11 +17,13 @@ import SettingsIntegrations from '@/pages/SettingsIntegrations'
 import SettingsResponsibles from '@/pages/SettingsResponsibles'
 import SettingsTemplates from '@/pages/SettingsTemplates'
 import SettingsUsers from '@/pages/SettingsUsers'
-import { AuthProvider } from '@/hooks/use-auth'
+import { AuthProvider, useAuth } from '@/hooks/use-auth'
 
-const App = () => (
-  <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-    <AuthProvider>
+const AppContent = () => {
+  const { user } = useAuth()
+  return (
+    <>
+      {user && <NotificationListener />}
       <TooltipProvider>
         <Toaster />
         <Sonner position="top-right" />
@@ -42,6 +45,14 @@ const App = () => (
           <Route path="*" element={<NotFound />} />
         </Routes>
       </TooltipProvider>
+    </>
+  )
+}
+
+const App = () => (
+  <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   </BrowserRouter>
 )

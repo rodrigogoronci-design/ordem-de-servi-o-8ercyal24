@@ -27,6 +27,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import pb from '@/lib/pocketbase/client'
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SignaturePad } from '@/components/SignaturePad'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -74,6 +76,10 @@ export default function OrderDetail() {
   const [isNotificationOpen, setIsNotificationOpen] = useState(false)
   const [recipientType, setRecipientType] = useState<'requester' | 'responsible'>('requester')
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
+
+  // Signature State
+  const [isSignatureOpen, setIsSignatureOpen] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null)
 
   const loadOrder = async () => {
     if (!id) return
@@ -129,6 +135,43 @@ export default function OrderDetail() {
   useRealtime('notification_logs', (e) => {
     if (e.record.service_order === id) loadLogs()
   })
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!order) return
+    if (newStatus === 'finalizado' && !order.signature) {
+      setPendingStatus('finalizado')
+      setIsSignatureOpen(true)
+      return
+    }
+
+    try {
+      await updateServiceOrder(order.id, { status: newStatus as any })
+      toast.success('Status atualizado')
+    } catch (error) {
+      toast.error('Erro ao atualizar status')
+    }
+  }
+
+  const handleSignatureSave = async (file: File) => {
+    if (!order) return
+    setIsSignatureOpen(false)
+    const formData = new FormData()
+    formData.append('signature', file)
+    if (pendingStatus) formData.append('status', pendingStatus)
+
+    try {
+      await updateServiceOrder(order.id, formData)
+      toast.success('Assinatura salva e OS atualizada')
+      setPendingStatus(null)
+    } catch (error) {
+      toast.error('Erro ao salvar assinatura')
+    }
+  }
+
+  const handleSignatureCancel = () => {
+    setIsSignatureOpen(false)
+    setPendingStatus(null)
+  }
 
   const handleAddComment = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -317,18 +360,19 @@ export default function OrderDetail() {
                   <div className="grid grid-cols-2 gap-4 pt-4 border-t">
                     <div>
                       <span className="font-semibold text-sm block mb-1">Status</span>
-                      <Badge
-                        variant={
-                          order.status === 'finalizado'
-                            ? 'default'
-                            : order.status === 'notificado'
-                              ? 'default'
-                              : 'secondary'
-                        }
-                        className={order.status === 'notificado' ? 'bg-green-600' : ''}
-                      >
-                        {order.status}
-                      </Badge>
+                      <Select value={order.status} onValueChange={handleStatusChange}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="aguardando">Aguardando</SelectItem>
+                          <SelectItem value="planejamento">Planejamento</SelectItem>
+                          <SelectItem value="executando">Executando</SelectItem>
+                          <SelectItem value="finalizado">Finalizado</SelectItem>
+                          <SelectItem value="cancelado">Cancelado</SelectItem>
+                          <SelectItem value="notificado">Notificado</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <span className="font-semibold text-sm block mb-1">Prioridade</span>
@@ -410,6 +454,21 @@ export default function OrderDetail() {
                       </p>
                     )}
                   </div>
+
+                  {order.signature && (
+                    <div className="pt-4 border-t">
+                      <span className="font-semibold text-sm text-muted-foreground block mb-2">
+                        Assinatura do Cliente
+                      </span>
+                      <div className="border rounded-md p-2 bg-white inline-block">
+                        <img
+                          src={pb.files.getUrl(order, order.signature)}
+                          alt="Assinatura do Cliente"
+                          className="max-h-32 object-contain"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -534,6 +593,20 @@ export default function OrderDetail() {
               Enviar via API
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isSignatureOpen} onOpenChange={(open) => !open && handleSignatureCancel()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Capturar Assinatura</DialogTitle>
+            <DialogDescription>
+              Para finalizar esta ordem de serviço, é necessária a assinatura do cliente.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <SignaturePad onSave={handleSignatureSave} onCancel={handleSignatureCancel} />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

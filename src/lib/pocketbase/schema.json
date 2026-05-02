@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-02T10:19:19.818Z",
+  "generatedAt": "2026-05-02T10:36:03.788Z",
   "collections": [
     {
       "name": "users",
@@ -151,6 +151,12 @@
         {
           "name": "order_number",
           "type": "number",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "signature",
+          "type": "file",
           "required": false,
           "system": false
         }
