@@ -13,7 +13,21 @@ export interface User {
   email: string
   avatar: string
   phone?: string
-  role?: 'admin' | 'colaborador'
+  role?: 'admin' | 'colaborador' | 'cliente'
+}
+
+export interface Invitation {
+  id: string
+  email: string
+  role: 'admin' | 'colaborador' | 'cliente'
+  token: string
+  status: 'pending' | 'accepted'
+  invited_by: string
+  created: string
+  updated: string
+  expand?: {
+    invited_by?: User
+  }
 }
 
 export type OSStatus =

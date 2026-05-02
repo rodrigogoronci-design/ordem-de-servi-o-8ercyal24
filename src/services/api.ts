@@ -7,6 +7,7 @@ import type {
   Responsible,
   NotificationLog,
   NotificationTemplate,
+  Invitation,
 } from '@/types/models'
 
 export const getServiceOrders = () =>
@@ -69,6 +70,14 @@ export const deleteNotificationTemplate = (id: string) =>
 
 export const updateUser = (id: string, data: Partial<User>) =>
   pb.collection('users').update<User>(id, data)
+
+export const getInvitations = () =>
+  pb.collection('invitations').getFullList<Invitation>({ sort: '-created', expand: 'invited_by' })
+
+export const createInvitation = (data: Partial<Invitation>) =>
+  pb.collection('invitations').create<Invitation>(data)
+
+export const deleteInvitation = (id: string) => pb.collection('invitations').delete(id)
 
 export const getIntegrations = () =>
   pb.collection('integrations').getFullList<Integration>({ sort: 'name' })

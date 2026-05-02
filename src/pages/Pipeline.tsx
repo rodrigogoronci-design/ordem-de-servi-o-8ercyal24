@@ -113,7 +113,7 @@ export default function Pipeline() {
                               <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                 <Clock className="w-3.5 h-3.5" />
                                 {order.due_date
-                                  ? format(new Date(order.due_date), 'dd/MM')
+                                  ? format(new Date(order.due_date), 'dd/MM HH:mm')
                                   : '--/--'}
                               </div>
                               {order.expand?.assignee && (

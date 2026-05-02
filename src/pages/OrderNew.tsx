@@ -40,6 +40,7 @@ const formSchema = z.object({
   assignee: z.string().optional(),
   responsible: z.string().optional(),
   due_date: z.date().optional(),
+  due_time: z.string().optional(),
 })
 
 export default function OrderNew() {
@@ -62,19 +63,32 @@ export default function OrderNew() {
       priority: 'media',
       assignee: 'none',
       responsible: 'none',
+      due_time: '12:00',
     },
   })
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true)
     try {
+      let finalDate: string | undefined = undefined
+      if (values.due_date) {
+        const d = new Date(values.due_date)
+        if (values.due_time) {
+          const [h, m] = values.due_time.split(':')
+          d.setHours(parseInt(h, 10), parseInt(m, 10))
+        }
+        finalDate = d.toISOString()
+      }
+
       const data = {
-        ...values,
+        title: values.title,
+        description: values.description,
+        priority: values.priority,
         status: 'aguardando' as const,
         requester: user.id,
         assignee: values.assignee === 'none' ? undefined : values.assignee || undefined,
         responsible: values.responsible === 'none' ? undefined : values.responsible || undefined,
-        due_date: values.due_date ? values.due_date.toISOString() : undefined,
+        due_date: finalDate,
       }
       await createServiceOrder(data)
       toast.success('Ordem de serviço criada com sucesso!')
@@ -159,44 +173,60 @@ export default function OrderNew() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="due_date"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2.5">
-                      <FormLabel>Prazo Esperado</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={'outline'}
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground',
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, 'PPP', { locale: ptBR })
-                              ) : (
-                                <span>Selecione uma data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="flex gap-4">
+                  <FormField
+                    control={form.control}
+                    name="due_date"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col pt-2.5 flex-1">
+                        <FormLabel>Data de Prazo</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={'outline'}
+                                className={cn(
+                                  'w-full pl-3 text-left font-normal',
+                                  !field.value && 'text-muted-foreground',
+                                )}
+                              >
+                                {field.value ? (
+                                  format(field.value, 'PPP', { locale: ptBR })
+                                ) : (
+                                  <span>Selecione a data</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="due_time"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col pt-2.5 w-[120px]">
+                        <FormLabel>Hora</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}

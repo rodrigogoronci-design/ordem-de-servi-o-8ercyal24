@@ -32,11 +32,13 @@ const navigation = [
 ]
 
 import { useAuth } from '@/hooks/use-auth'
+import { useSidebar } from '@/components/ui/sidebar'
 
 export function AppSidebar() {
   const location = useLocation()
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  const { setOpenMobile } = useSidebar()
 
   return (
     <Sidebar>
@@ -74,7 +76,11 @@ export function AppSidebar() {
                       tooltip={item.title}
                       className="my-1"
                     >
-                      <Link to={item.url} className="flex items-center gap-3">
+                      <Link
+                        to={item.url}
+                        className="flex items-center gap-3"
+                        onClick={() => setOpenMobile(false)}
+                      >
                         <item.icon className="w-5 h-5" />
                         <span className="font-medium">{item.title}</span>
                       </Link>

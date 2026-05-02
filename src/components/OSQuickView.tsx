@@ -79,7 +79,9 @@ export function OSQuickView({ order }: { order: ServiceOrder }) {
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-slate-400" />
               <span className="font-medium">
-                {order.due_date ? format(new Date(order.due_date), 'dd/MM/yyyy') : 'Não definido'}
+                {order.due_date
+                  ? format(new Date(order.due_date), 'dd/MM/yyyy HH:mm')
+                  : 'Não definido'}
               </span>
             </div>
           </div>

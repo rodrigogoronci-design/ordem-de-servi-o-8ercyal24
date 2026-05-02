@@ -90,7 +90,7 @@ export default function Orders() {
               <TableHead>Prioridade</TableHead>
               <TableHead>Técnico</TableHead>
               <TableHead>Responsável/Contato</TableHead>
-              <TableHead className="hidden md:table-cell">Data Criação</TableHead>
+              <TableHead className="hidden md:table-cell">Prazo</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -127,7 +127,9 @@ export default function Orders() {
                     )}
                   </TableCell>
                   <TableCell className="hidden md:table-cell text-sm text-slate-500">
-                    {format(new Date(order.created), 'dd/MM/yyyy', { locale: ptBR })}
+                    {order.due_date
+                      ? format(new Date(order.due_date), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                      : '-'}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
