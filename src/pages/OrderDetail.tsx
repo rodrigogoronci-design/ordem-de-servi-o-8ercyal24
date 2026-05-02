@@ -207,8 +207,10 @@ export default function OrderDetail() {
     content = content.replace(/{nome}/g, nome)
     content = content.replace(/{titulo}/g, order.title)
     content = content.replace(/{status}/g, order.status)
-    content = content.replace(/{id}/g, order.id)
-    content = content.replace(/{order_number}/g, String(order.order_number || order.id))
+
+    const displayId = `ID: #${order.order_number || order.id}`
+    content = content.replace(/{id}/g, displayId)
+    content = content.replace(/{order_number}/g, displayId)
 
     return { content, phone, name: nome }
   }

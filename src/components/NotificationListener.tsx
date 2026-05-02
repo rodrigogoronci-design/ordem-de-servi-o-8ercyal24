@@ -34,13 +34,13 @@ export function NotificationListener() {
 
     if (e.action === 'create') {
       knownStatuses.current[e.record.id] = e.record.status
-      new Notification(`Nova OS #${e.record.order_number || e.record.id.slice(0, 5)}`, {
+      new Notification(`Nova OS ID: #${e.record.order_number || e.record.id.slice(0, 5)}`, {
         body: e.record.title,
       })
     } else if (e.action === 'update') {
       const prevStatus = knownStatuses.current[e.record.id]
       if (prevStatus && prevStatus !== e.record.status) {
-        new Notification(`OS #${e.record.order_number || e.record.id.slice(0, 5)} Atualizada`, {
+        new Notification(`OS ID: #${e.record.order_number || e.record.id.slice(0, 5)} Atualizada`, {
           body: `Novo status: ${e.record.status}`,
         })
       }
