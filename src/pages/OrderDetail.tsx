@@ -1,21 +1,30 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import {
   getServiceOrder,
   updateServiceOrder,
-  deleteServiceOrder,
-  getUsers,
-  getResponsibles,
+  getComments,
+  createComment,
+  getNotificationTemplates,
   sendWhatsAppMessage,
 } from '@/services/api'
+import type { ServiceOrder, Comment, NotificationTemplate } from '@/types/models'
 import { useRealtime } from '@/hooks/use-realtime'
-import type { ServiceOrder, User, Responsible } from '@/types/models'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { StatusBadge } from '@/components/badges'
+import { useAuth } from '@/hooks/use-auth'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -23,526 +32,344 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Clock, CalendarIcon, Edit, Trash, MessageCircle } from 'lucide-react'
-import { CommentsSection } from '@/components/CommentsSection'
-import { format, parseISO } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { MessageCircle, Send, ExternalLink, ArrowLeft, Clock } from 'lucide-react'
 import { toast } from 'sonner'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
 
-const editSchema = z.object({
-  title: z.string().min(3, 'Título muito curto'),
-  description: z.string().optional(),
-  priority: z.enum(['baixa', 'media', 'alta', 'urgente']),
-  status: z.enum(['aguardando', 'planejamento', 'executando', 'finalizado', 'cancelado']),
-  assignee: z.string().optional(),
-  responsible: z.string().optional(),
-  due_date: z.date().optional(),
-})
-
 export default function OrderDetail() {
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [order, setOrder] = useState<ServiceOrder | null>(null)
-  const [users, setUsers] = useState<User[]>([])
-  const [responsibles, setResponsibles] = useState<Responsible[]>([])
+  const { user } = useAuth()
 
-  const [isEditOpen, setIsEditOpen] = useState(false)
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [order, setOrder] = useState<ServiceOrder | null>(null)
+  const [comments, setComments] = useState<Comment[]>([])
+  const [templates, setTemplates] = useState<NotificationTemplate[]>([])
+  const [newComment, setNewComment] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const [isSendingWa, setIsSendingWa] = useState(false)
+  // Notification Dialog State
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
+  const [recipientType, setRecipientType] = useState<'requester' | 'responsible'>('requester')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
 
-  const form = useForm<z.infer<typeof editSchema>>({
-    resolver: zodResolver(editSchema),
-  })
-
-  const load = async () => {
+  const loadOrder = async () => {
     if (!id) return
     try {
-      const data = await getServiceOrder(id)
-      setOrder(data)
+      setOrder(await getServiceOrder(id))
     } catch (e) {
-      toast.error('OS não encontrada')
+      toast.error('Erro ao carregar OS')
       navigate('/orders')
     }
   }
 
-  useEffect(() => {
-    load()
-    getUsers().then(setUsers)
-    getResponsibles().then(setResponsibles)
-  }, [id])
-
-  useRealtime('service_orders', load)
-
-  useEffect(() => {
-    if (order && isEditOpen) {
-      form.reset({
-        title: order.title,
-        description: order.description,
-        priority: order.priority,
-        status: order.status,
-        assignee: order.assignee || 'none',
-        responsible: order.responsible || 'none',
-        due_date: order.due_date ? parseISO(order.due_date) : undefined,
-      })
-    }
-  }, [order, isEditOpen, form])
-
-  if (!order) return <div className="p-8">Carregando...</div>
-
-  const handleUpdate = async (field: keyof ServiceOrder, value: string) => {
+  const loadComments = async () => {
+    if (!id) return
     try {
-      await updateServiceOrder(order.id, { [field]: value === 'none' ? '' : value })
-      toast.success('Atualizado com sucesso')
-    } catch (e) {
-      toast.error('Erro ao atualizar')
+      setComments(await getComments(id))
+    } catch {
+      /* intentionally ignored */
     }
   }
 
-  const onSubmitEdit = async (values: z.infer<typeof editSchema>) => {
+  const loadTemplates = async () => {
+    try {
+      const data = await getNotificationTemplates()
+      setTemplates(data)
+      if (data.length > 0) setSelectedTemplateId(data[0].id)
+    } catch {
+      /* intentionally ignored */
+    }
+  }
+
+  useEffect(() => {
+    loadOrder()
+    loadComments()
+    loadTemplates()
+  }, [id])
+
+  useRealtime('service_orders', (e) => {
+    if (e.record.id === id) loadOrder()
+  })
+  useRealtime('comments', (e) => {
+    if (e.record.service_order === id) loadComments()
+  })
+
+  const handleAddComment = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newComment.trim() || !id || !user) return
     setIsSubmitting(true)
     try {
-      const data = {
-        ...values,
-        assignee: values.assignee === 'none' ? '' : values.assignee,
-        responsible: values.responsible === 'none' ? '' : values.responsible,
-        due_date: values.due_date ? values.due_date.toISOString() : '',
-      }
-      await updateServiceOrder(order.id, data)
-      toast.success('Ordem de serviço atualizada!')
-      setIsEditOpen(false)
+      await createComment({ service_order: id, content: newComment, user: user.id })
+      setNewComment('')
+      toast.success('Comentário adicionado')
     } catch (error) {
-      toast.error('Erro ao atualizar')
+      toast.error('Erro ao adicionar comentário')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleDelete = async () => {
-    if (!order.id) return
-    try {
-      await deleteServiceOrder(order.id)
-      toast.success('Ordem de serviço excluída')
-      navigate('/orders')
-    } catch (error) {
-      toast.error('Erro ao excluir OS')
+  const getMessagePreview = () => {
+    if (!selectedTemplateId || !order) return { content: '', phone: '' }
+    const template = templates.find((t) => t.id === selectedTemplateId)
+    if (!template) return { content: '', phone: '' }
+
+    let nome = ''
+    let phone = ''
+    if (recipientType === 'requester' && order.expand?.requester) {
+      nome = order.expand.requester.name || 'Cliente'
+      phone = order.expand.requester.phone || ''
+    } else if (recipientType === 'responsible' && order.expand?.responsible) {
+      nome = order.expand.responsible.name || 'Responsável'
+      phone = order.expand.responsible.phone || ''
     }
+
+    let content = template.content
+    content = content.replace(/{nome}/g, nome)
+    content = content.replace(/{titulo}/g, order.title)
+    content = content.replace(/{status}/g, order.status)
+    content = content.replace(/{id}/g, order.id)
+
+    return { content, phone }
   }
 
-  const handleSendWhatsApp = async () => {
-    if (!order.expand?.responsible || !order.expand.responsible.phone) {
-      toast.error('Falha ao enviar: Nenhum responsável atribuído a esta ordem de serviço.')
+  const { content: previewContent, phone: previewPhone } = getMessagePreview()
+
+  const handleSendApi = async () => {
+    if (!previewPhone) {
+      toast.error('Destinatário selecionado não possui telefone cadastrado.')
       return
     }
-
-    setIsSendingWa(true)
+    if (!id) return
     try {
-      await sendWhatsAppMessage(order.id)
-      toast.success(`Mensagem enviada com sucesso para ${order.expand.responsible.name}`)
-    } catch (error: any) {
-      toast.error(error?.response?.message || 'Falha ao enviar mensagem via WhatsApp.')
-    } finally {
-      setIsSendingWa(false)
+      await sendWhatsAppMessage(id, { phone: previewPhone, message: previewContent })
+      await updateServiceOrder(id, { last_notification_sent: new Date().toISOString() })
+      toast.success('Notificação enviada com sucesso!')
+      setIsNotificationOpen(false)
+    } catch (e) {
+      toast.error('Erro ao enviar notificação')
     }
   }
+
+  const handleOpenWhatsAppWeb = () => {
+    if (!previewPhone) {
+      toast.error('Destinatário selecionado não possui telefone cadastrado.')
+      return
+    }
+    const cleanPhone = previewPhone.replace(/\D/g, '')
+    const encoded = encodeURIComponent(previewContent)
+    window.open(`https://wa.me/${cleanPhone}?text=${encoded}`, '_blank')
+    setIsNotificationOpen(false)
+  }
+
+  if (!order) return null
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-bold tracking-tight">{order.title}</h2>
-              <StatusBadge status={order.status} className="text-sm px-3 py-1" />
-            </div>
-            <p className="text-muted-foreground font-mono text-sm mt-1">ID: #{order.id}</p>
-          </div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="mt-1 sm:mt-0">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1">
+          <h2 className="text-3xl font-bold tracking-tight">{order.title}</h2>
+          <p className="text-muted-foreground">OS #{order.id}</p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full sm:w-auto ml-14 sm:ml-0">
-          <Button variant="outline" onClick={handleSendWhatsApp} disabled={isSendingWa}>
-            <MessageCircle className="w-4 h-4 mr-2" /> {isSendingWa ? 'Enviando...' : 'WhatsApp'}
-          </Button>
-          <Button variant="outline" onClick={() => setIsEditOpen(true)}>
-            <Edit className="w-4 h-4 mr-2" /> Editar
-          </Button>
-          <Button variant="destructive" onClick={() => setIsDeleteOpen(true)}>
-            <Trash className="w-4 h-4 mr-2" /> Excluir
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => setIsNotificationOpen(true)}
+            className="bg-green-600 hover:bg-green-700"
+          >
+            <MessageCircle className="w-4 h-4 mr-2" />
+            Notificar
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-none shadow-sm">
+      {order.last_notification_sent && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-green-50 text-green-700 px-4 py-3 rounded-lg border border-green-200">
+          <Clock className="w-4 h-4" />
+          <span>
+            Último envio de notificação:{' '}
+            {format(new Date(order.last_notification_sent), "dd/MM/yyyy 'às' HH:mm", {
+              locale: ptBR,
+            })}
+          </span>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          <Card>
             <CardHeader>
-              <CardTitle>Descrição</CardTitle>
+              <CardTitle>Detalhes da Ordem</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 min-h-[120px] whitespace-pre-wrap text-slate-700">
-                {order.description || <span className="text-slate-400 italic">Sem descrição.</span>}
+            <CardContent className="space-y-4">
+              <div>
+                <span className="font-semibold text-sm">Descrição</span>
+                <p className="text-muted-foreground mt-1 whitespace-pre-wrap">
+                  {order.description || 'Sem descrição'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                <div>
+                  <span className="font-semibold text-sm block mb-1">Status</span>
+                  <Badge variant={order.status === 'finalizado' ? 'default' : 'secondary'}>
+                    {order.status}
+                  </Badge>
+                </div>
+                <div>
+                  <span className="font-semibold text-sm block mb-1">Prioridade</span>
+                  <Badge variant={order.priority === 'urgente' ? 'destructive' : 'outline'}>
+                    {order.priority}
+                  </Badge>
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-sm">
+          <Card>
             <CardHeader>
-              <CardTitle>Comunicações</CardTitle>
+              <CardTitle>Comentários</CardTitle>
             </CardHeader>
             <CardContent>
-              <CommentsSection orderId={order.id} />
+              <div className="space-y-4 mb-4">
+                {comments.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">Nenhum comentário ainda.</p>
+                ) : (
+                  comments.map((c) => (
+                    <div key={c.id} className="bg-slate-50 p-3 rounded-lg text-sm">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-semibold">{c.expand?.user?.name || 'Usuário'}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(c.created), 'dd/MM/yy HH:mm')}
+                        </span>
+                      </div>
+                      <p className="text-slate-700">{c.content}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+              <form onSubmit={handleAddComment} className="flex gap-2">
+                <Input
+                  placeholder="Escreva um comentário..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                />
+                <Button type="submit" disabled={!newComment.trim() || isSubmitting}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </div>
 
         <div className="space-y-6">
-          <Card className="border-none shadow-sm">
-            <CardHeader className="bg-slate-50/50 border-b pb-4">
-              <CardTitle className="text-lg">Detalhes Rápidos</CardTitle>
+          <Card>
+            <CardHeader>
+              <CardTitle>Envolvidos</CardTitle>
             </CardHeader>
-            <CardContent className="pt-6 space-y-5">
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={order.status} onValueChange={(v) => handleUpdate('status', v)}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aguardando">Aguardando</SelectItem>
-                    <SelectItem value="planejamento">Em Planejamento</SelectItem>
-                    <SelectItem value="executando">Executando</SelectItem>
-                    <SelectItem value="finalizado">Finalizado</SelectItem>
-                    <SelectItem value="cancelado">Cancelado</SelectItem>
-                  </SelectContent>
-                </Select>
+            <CardContent className="space-y-4">
+              <div>
+                <span className="font-semibold text-sm text-muted-foreground">Solicitante</span>
+                <p className="font-medium">{order.expand?.requester?.name || '-'}</p>
+                {order.expand?.requester?.phone && (
+                  <p className="text-xs text-muted-foreground">{order.expand.requester.phone}</p>
+                )}
               </div>
-
-              <div className="space-y-2">
-                <Label>Prioridade</Label>
-                <Select value={order.priority} onValueChange={(v) => handleUpdate('priority', v)}>
-                  <SelectTrigger className="bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="baixa">Baixa</SelectItem>
-                    <SelectItem value="media">Média</SelectItem>
-                    <SelectItem value="alta">Alta</SelectItem>
-                    <SelectItem value="urgente">Urgente</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="pt-4 border-t">
+                <span className="font-semibold text-sm text-muted-foreground">Atribuído a</span>
+                <p className="font-medium">{order.expand?.assignee?.name || 'Não atribuído'}</p>
               </div>
-
-              <div className="space-y-2">
-                <Label>Técnico Atribuído</Label>
-                <Select
-                  value={order.assignee || 'none'}
-                  onValueChange={(v) => handleUpdate('assignee', v)}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Não atribuído" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Não atribuído</SelectItem>
-                    {users.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Responsável / Contato</Label>
-                <Select
-                  value={order.responsible || 'none'}
-                  onValueChange={(v) => handleUpdate('responsible', v)}
-                >
-                  <SelectTrigger className="bg-white">
-                    <SelectValue placeholder="Sem responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem responsável</SelectItem>
-                    {responsibles.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>
-                        {r.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {order.expand?.responsible && (
-                <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 text-sm space-y-2 mt-4">
-                  <p className="font-medium text-blue-900">{order.expand.responsible.name}</p>
-                  <p className="text-blue-700 flex items-center gap-2">
-                    <span className="font-medium">Telefone:</span> {order.expand.responsible.phone}
-                  </p>
-                  <p className="text-blue-700 flex items-center gap-2">
-                    <span className="font-medium">Email:</span> {order.expand.responsible.email}
-                  </p>
-                </div>
-              )}
-
-              <div className="pt-4 border-t space-y-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 flex items-center gap-2">
-                    <CalendarIcon className="w-4 h-4" /> Prazo
-                  </span>
-                  <span className="font-medium">
-                    {order.due_date ? format(new Date(order.due_date), 'dd/MM/yyyy') : '-'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-500 flex items-center gap-2">
-                    <Clock className="w-4 h-4" /> Criado em
-                  </span>
-                  <span className="font-medium">
-                    {format(new Date(order.created), 'dd/MM/yyyy HH:mm')}
-                  </span>
-                </div>
+              <div className="pt-4 border-t">
+                <span className="font-semibold text-sm text-muted-foreground">
+                  Responsável (Externo)
+                </span>
+                <p className="font-medium">{order.expand?.responsible?.name || 'Não definido'}</p>
+                {order.expand?.responsible?.phone && (
+                  <p className="text-xs text-muted-foreground">{order.expand.responsible.phone}</p>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      <Sheet open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <SheetContent className="sm:max-w-md overflow-y-auto">
-          <SheetHeader className="mb-6">
-            <SheetTitle>Editar Ordem de Serviço</SheetTitle>
-            <SheetDescription>Modifique os dados da OS.</SheetDescription>
-          </SheetHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitEdit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Título</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descrição</FormLabel>
-                    <FormControl>
-                      <Textarea className="min-h-[100px]" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="status"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="aguardando">Aguardando</SelectItem>
-                        <SelectItem value="planejamento">Planejamento</SelectItem>
-                        <SelectItem value="executando">Executando</SelectItem>
-                        <SelectItem value="finalizado">Finalizado</SelectItem>
-                        <SelectItem value="cancelado">Cancelado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="priority"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Prioridade</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="baixa">Baixa</SelectItem>
-                        <SelectItem value="media">Média</SelectItem>
-                        <SelectItem value="alta">Alta</SelectItem>
-                        <SelectItem value="urgente">Urgente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="assignee"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Técnico Atribuído</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Não atribuído</SelectItem>
-                        {users.map((u) => (
-                          <SelectItem key={u.id} value={u.id}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="responsible"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsável (Contato)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Sem responsável</SelectItem>
-                        {responsibles.map((r) => (
-                          <SelectItem key={r.id} value={r.id}>
-                            {r.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="due_date"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col pt-1">
-                    <FormLabel>Prazo</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              'w-full pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground',
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, 'PPP', { locale: ptBR })
-                            ) : (
-                              <span>Selecione</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <div className="pt-4 flex justify-end gap-2">
-                <Button variant="outline" type="button" onClick={() => setIsEditOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  Salvar
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </SheetContent>
-      </Sheet>
+      <Dialog open={isNotificationOpen} onOpenChange={setIsNotificationOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar Notificação WhatsApp</DialogTitle>
+            <DialogDescription>Escolha o destinatário e o template da mensagem.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Destinatário</Label>
+              <RadioGroup
+                value={recipientType}
+                onValueChange={(v) => setRecipientType(v as any)}
+                className="flex flex-col gap-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="requester" id="r1" />
+                  <Label htmlFor="r1" className="cursor-pointer">
+                    Solicitante ({order.expand?.requester?.name || 'Sem nome'})
+                    {order.expand?.requester?.phone
+                      ? ` - ${order.expand.requester.phone}`
+                      : ' (Sem telefone)'}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="responsible" id="r2" disabled={!order.responsible} />
+                  <Label
+                    htmlFor="r2"
+                    className={cn('cursor-pointer', !order.responsible && 'opacity-50')}
+                  >
+                    Responsável ({order.expand?.responsible?.name || 'Nenhum'})
+                    {order.expand?.responsible?.phone ? ` - ${order.expand.responsible.phone}` : ''}
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
 
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. Isso excluirá permanentemente a Ordem de Serviço e
-              todos os seus comentários associados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
-              Excluir OS
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            <div className="space-y-2 pt-2 border-t">
+              <Label>Template de Mensagem</Label>
+              <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <Label>Pré-visualização</Label>
+              <div className="bg-slate-100 p-3 rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
+                {previewContent || 'Selecione um template para ver a pré-visualização.'}
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleOpenWhatsAppWeb} className="w-full sm:w-auto">
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Abrir no WhatsApp Web
+            </Button>
+            <Button
+              onClick={handleSendApi}
+              className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              Enviar via API
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -12,6 +12,7 @@ export interface User {
   name: string
   email: string
   avatar: string
+  phone?: string
 }
 
 export type OSStatus = 'aguardando' | 'planejamento' | 'executando' | 'finalizado' | 'cancelado'
@@ -27,6 +28,7 @@ export interface ServiceOrder {
   assignee?: string
   responsible?: string
   due_date?: string
+  last_notification_sent?: string
   created: string
   updated: string
   expand?: {
@@ -34,6 +36,14 @@ export interface ServiceOrder {
     assignee?: User
     responsible?: Responsible
   }
+}
+
+export interface NotificationTemplate {
+  id: string
+  name: string
+  content: string
+  created: string
+  updated: string
 }
 
 export interface Comment {

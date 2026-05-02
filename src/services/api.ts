@@ -47,6 +47,21 @@ export const updateResponsible = (id: string, data: Partial<Responsible>) =>
 
 export const deleteResponsible = (id: string) => pb.collection('responsibles').delete(id)
 
+export const getNotificationTemplates = () =>
+  pb.collection('notification_templates').getFullList<NotificationTemplate>({ sort: 'name' })
+
+export const createNotificationTemplate = (data: Partial<NotificationTemplate>) =>
+  pb.collection('notification_templates').create<NotificationTemplate>(data)
+
+export const updateNotificationTemplate = (id: string, data: Partial<NotificationTemplate>) =>
+  pb.collection('notification_templates').update<NotificationTemplate>(id, data)
+
+export const deleteNotificationTemplate = (id: string) =>
+  pb.collection('notification_templates').delete(id)
+
+export const updateUser = (id: string, data: Partial<User>) =>
+  pb.collection('users').update<User>(id, data)
+
 export const getIntegrations = () =>
   pb.collection('integrations').getFullList<Integration>({ sort: 'name' })
 
@@ -55,8 +70,9 @@ export const getIntegration = (id: string) => pb.collection('integrations').getO
 export const updateIntegration = (id: string, data: Partial<Integration>) =>
   pb.collection('integrations').update<Integration>(id, data)
 
-export const sendWhatsAppMessage = (orderId: string) =>
+export const sendWhatsAppMessage = (orderId: string, payload?: any) =>
   pb.send(`/backend/v1/orders/${orderId}/whatsapp`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: payload ? JSON.stringify(payload) : undefined,
   })
